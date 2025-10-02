@@ -587,13 +587,13 @@ export default function DocumentsPage() {
           >
             <div className="relative max-w-7xl max-h-screen p-4 w-full h-full flex flex-col">
               {/* Header */}
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">
+              <div className="flex items-center justify-between mb-4 gap-2">
+                <h3 className="text-sm sm:text-lg font-semibold text-white truncate flex-1 min-w-0">
                   {viewingImageName}
                 </h3>
                 <button
                   onClick={() => setShowImageViewer(false)}
-                  className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                  className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-full transition-colors flex-shrink-0"
                   title="Close"
                 >
                   <X className="h-6 w-6" />

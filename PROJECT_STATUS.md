@@ -30,9 +30,9 @@ Build a construction document management system (DocuBuild) for a Philippine con
 
 ## 📊 Progress Overview
 
-**Overall Completion:** 100% (18/18 core tasks) 🎉
+**Overall Completion:** 100% (20/20 core tasks) 🎉
 
-### ✅ Completed Features (18)
+### ✅ Completed Features (20)
 
 #### Core Infrastructure
 - [x] Next.js 15.5.4 project setup with TypeScript, Tailwind CSS
@@ -117,6 +117,39 @@ Build a construction document management system (DocuBuild) for a Philippine con
 - [x] Reduced padding for mobile (px-4 sm:px-6)
 - [x] Action buttons layout improved with proper gaps
 - [x] Upload date and uploader displayed separately for clarity
+- [x] Fixed Approvals page mobile layout (10/3/2025)
+- [x] Truncated long filenames with ellipsis
+- [x] Full-width Approve/Reject buttons on mobile
+- [x] Stacked card layout for pending and completed requests
+
+#### Editable File Names Feature (Completed 10/3/2025)
+- [x] Show file preview before upload with editable name input
+- [x] Strip file extension from default name
+- [x] Display original filename and file size below input
+- [x] "Upload All" button to confirm uploads
+- [x] Update storage.ts to accept customTitle parameter
+- [x] Store custom title in documents.title field
+- [x] Blue preview cards for pending uploads
+- [x] Individual file removal before upload
+
+#### Image Lightbox Viewer (Completed 10/3/2025)
+- [x] Added View button (eye icon) for all documents
+- [x] Check file type to determine view behavior
+- [x] Images open in fullscreen lightbox modal
+- [x] PDFs and documents open in new tab
+- [x] Lightbox features:
+  - Black overlay background (90% opacity)
+  - Centered image display with max width/height
+  - Close button (X) in top right
+  - Download button at bottom
+  - Click outside to close
+  - Stop propagation on image click
+- [x] Separate View and Download buttons for all documents
+- [x] Maintain audit logging for both actions
+- [x] Mobile fix: Close button always visible with long filenames (10/3/2025)
+  - Truncate filename with ellipsis
+  - Smaller text on mobile (text-sm)
+  - Flex-shrink-0 on close button to prevent hiding
 
 ---
 
