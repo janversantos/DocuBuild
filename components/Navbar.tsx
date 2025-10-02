@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
-import { FileText, Folder, BarChart3, LogOut, CheckCircle } from 'lucide-react'
+import { FileText, Folder, BarChart3, LogOut, CheckCircle, Activity } from 'lucide-react'
 
 export default function Navbar() {
   const { profile, signOut } = useAuth()
@@ -15,6 +15,9 @@ export default function Navbar() {
     { name: 'Projects', href: '/dashboard/projects', icon: Folder },
     ...(profile?.role === 'approver' || profile?.role === 'admin'
       ? [{ name: 'Approvals', href: '/dashboard/approvals', icon: CheckCircle }]
+      : []),
+    ...(profile?.role === 'admin'
+      ? [{ name: 'Audit Trail', href: '/dashboard/audit-trail', icon: Activity }]
       : []),
   ]
 
