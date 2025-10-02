@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { Document, Category, Project } from '@/types/database.types'
 import { formatFileSize, getDocumentUrl, deleteDocument } from '@/lib/storage'
 import { format } from 'date-fns'
-import { Download, Trash2, FileText, Search } from 'lucide-react'
+import { Download, Trash2, FileText, Search, CheckCircle } from 'lucide-react'
 
 export default function DocumentsPage() {
   const { user, profile, loading } = useAuth()
@@ -22,6 +22,12 @@ export default function DocumentsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [loadingDocs, setLoadingDocs] = useState(true)
   const [showUpload, setShowUpload] = useState(false)
+  const [showApprovalModal, setShowApprovalModal] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
+  const [approvers, setApprovers] = useState<any[]>([])
+  const [selectedApproverId, setSelectedApproverId] = useState('')
+  const [approvalComments, setApprovalComments] = useState('')
+  const [submittingApproval, setSubmittingApproval] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -139,6 +145,73 @@ export default function DocumentsPage() {
       setDocuments((prev) => prev.filter((d) => d.id !== doc.id))
     } else {
       alert('Failed to delete document')
+    }
+  }
+
+  const fetchApprovers = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, role')
+      .in('role', ['approver', 'admin'])
+      .order('full_name')
+    setApprovers(data || [])
+  }
+
+  const openApprovalModal = (doc: Document) => {
+    setSelectedDocument(doc)
+    setShowApprovalModal(true)
+    setSelectedApproverId('')
+    setApprovalComments('')
+    fetchApprovers()
+  }
+
+  const handleRequestApproval = async () => {
+    if (!selectedDocument || !selectedApproverId) {
+      alert('Please select an approver')
+      return
+    }
+
+    setSubmittingApproval(true)
+    try {
+      // Create approval request
+      const { error: requestError } = await supabase.from('approval_requests').insert({
+        document_id: selectedDocument.id,
+        requested_by: user!.id,
+        approver_id: selectedApproverId,
+        status: 'pending',
+        comments: approvalComments || null,
+      })
+
+      if (requestError) throw requestError
+
+      // Update document status to pending
+      const { error: updateError } = await supabase
+        .from('documents')
+        .update({ status: 'pending' })
+        .eq('id', selectedDocument.id)
+
+      if (updateError) throw updateError
+
+      // Log audit trail
+      await supabase.from('audit_logs').insert({
+        user_id: user!.id,
+        action: 'request_approval',
+        entity_type: 'document',
+        entity_id: selectedDocument.id,
+        details: {
+          file_name: selectedDocument.file_name,
+          approver_id: selectedApproverId
+        },
+      })
+
+      alert('Approval request sent successfully!')
+      setShowApprovalModal(false)
+      fetchDocuments()
+    } catch (error) {
+      console.error('Error requesting approval:', error)
+      alert('Failed to request approval')
+    } finally {
+      setSubmittingApproval(false)
     }
   }
 
@@ -342,6 +415,21 @@ export default function DocumentsPage() {
                     </div>
 
                     <div className="flex items-center space-x-2">
+                      {doc.status && (
+                        <span
+                          className={`px-2 py-1 text-xs rounded ${
+                            doc.status === 'approved'
+                              ? 'bg-green-100 text-green-800'
+                              : doc.status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : doc.status === 'rejected'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {doc.status}
+                        </span>
+                      )}
                       <button
                         onClick={() => handleDownload(doc)}
                         className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
@@ -349,6 +437,15 @@ export default function DocumentsPage() {
                       >
                         <Download className="h-5 w-5" />
                       </button>
+                      {doc.status === 'draft' && (profile.role === 'staff' || profile.role === 'admin') && (
+                        <button
+                          onClick={() => openApprovalModal(doc)}
+                          className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded"
+                          title="Request Approval"
+                        >
+                          <CheckCircle className="h-5 w-5" />
+                        </button>
+                      )}
                       {(profile.role === 'admin' ||
                         doc.uploaded_by === user.id) && (
                         <button
@@ -366,6 +463,75 @@ export default function DocumentsPage() {
             </div>
           )}
         </div>
+
+        {/* Approval Request Modal */}
+        {showApprovalModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Request Document Approval
+                </h3>
+              </div>
+
+              <div className="px-6 py-4 space-y-4">
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">
+                    Document: <span className="font-medium text-gray-900">{selectedDocument?.file_name}</span>
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Approver *
+                  </label>
+                  <select
+                    value={selectedApproverId}
+                    onChange={(e) => setSelectedApproverId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Choose an approver...</option>
+                    {approvers.map((approver) => (
+                      <option key={approver.id} value={approver.id}>
+                        {approver.full_name} ({approver.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Comments (Optional)
+                  </label>
+                  <textarea
+                    value={approvalComments}
+                    onChange={(e) => setApprovalComments(e.target.value)}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Add any notes for the approver..."
+                  />
+                </div>
+              </div>
+
+              <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowApprovalModal(false)}
+                  disabled={submittingApproval}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRequestApproval}
+                  disabled={submittingApproval || !selectedApproverId}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submittingApproval ? 'Submitting...' : 'Request Approval'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
