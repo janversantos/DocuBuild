@@ -383,53 +383,55 @@ export default function DocumentsPage() {
               {filteredDocuments.map((doc) => (
                 <div
                   key={doc.id}
-                  className="px-6 py-4 hover:bg-gray-50 transition-colors"
+                  className="px-4 sm:px-6 py-4 hover:bg-gray-50 transition-colors"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-start space-x-4 flex-1">
-                      <FileText className="h-6 w-6 text-gray-400 mt-1" />
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-start space-x-3 flex-1 min-w-0">
+                      <FileText className="h-6 w-6 text-gray-400 mt-1 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-medium text-gray-900 truncate">
                           {doc.file_name}
                         </h3>
-                        <div className="mt-1 flex items-center space-x-4 text-xs text-gray-500">
-                          <span>
-                            {doc.file_size ? formatFileSize(doc.file_size) : ''}
-                          </span>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                          {doc.file_size && (
+                            <span>
+                              {formatFileSize(doc.file_size)}
+                            </span>
+                          )}
                           {doc.category && (
-                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded whitespace-nowrap">
                               {doc.category.name}
                             </span>
                           )}
                           {doc.project && (
-                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded">
+                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded whitespace-nowrap">
                               {doc.project.name}
                             </span>
                           )}
-                          <span>
-                            Uploaded {format(new Date(doc.created_at), 'MMM d, yyyy')}
-                          </span>
-                          {doc.uploader && <span>by {doc.uploader.full_name}</span>}
+                          {doc.status && (
+                            <span
+                              className={`px-2 py-1 rounded whitespace-nowrap ${
+                                doc.status === 'approved'
+                                  ? 'bg-green-100 text-green-800'
+                                  : doc.status === 'pending'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : doc.status === 'rejected'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {doc.status}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-400">
+                          Uploaded {format(new Date(doc.created_at), 'MMM d, yyyy')}
+                          {doc.uploader && <> by {doc.uploader.full_name}</>}
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      {doc.status && (
-                        <span
-                          className={`px-2 py-1 text-xs rounded ${
-                            doc.status === 'approved'
-                              ? 'bg-green-100 text-green-800'
-                              : doc.status === 'pending'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : doc.status === 'rejected'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {doc.status}
-                        </span>
-                      )}
+                    <div className="flex items-center space-x-2 sm:ml-4">
                       <button
                         onClick={() => handleDownload(doc)}
                         className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
