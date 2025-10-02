@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { Document, Category, Project } from '@/types/database.types'
 import { formatFileSize, getDocumentUrl, deleteDocument } from '@/lib/storage'
 import { format } from 'date-fns'
-import { Download, Trash2, FileText, Search, CheckCircle } from 'lucide-react'
+import { Download, Trash2, FileText, Search, CheckCircle, Eye, X } from 'lucide-react'
 
 export default function DocumentsPage() {
   const { user, profile, loading } = useAuth()
@@ -28,6 +28,9 @@ export default function DocumentsPage() {
   const [selectedApproverId, setSelectedApproverId] = useState('')
   const [approvalComments, setApprovalComments] = useState('')
   const [submittingApproval, setSubmittingApproval] = useState(false)
+  const [showImageViewer, setShowImageViewer] = useState(false)
+  const [viewingImageUrl, setViewingImageUrl] = useState<string>('')
+  const [viewingImageName, setViewingImageName] = useState<string>('')
 
   useEffect(() => {
     if (!loading && !user) {
@@ -110,11 +113,45 @@ export default function DocumentsPage() {
     setProjects(data || [])
   }
 
+  const isImage = (fileType: string) => {
+    return fileType.startsWith('image/')
+  }
+
+  const handleView = async (doc: Document) => {
+    try {
+      const url = await getDocumentUrl(doc.file_path)
+      if (url) {
+        // Check if it's an image
+        if (isImage(doc.file_type)) {
+          // Open in image viewer modal
+          setViewingImageUrl(url)
+          setViewingImageName(doc.title || doc.file_name)
+          setShowImageViewer(true)
+        } else {
+          // Open PDFs and other files in new tab
+          window.open(url, '_blank')
+        }
+
+        // Log audit trail
+        await supabase.from('audit_logs').insert({
+          user_id: user?.id,
+          action: 'download',
+          entity_type: 'document',
+          entity_id: doc.id,
+          details: { file_name: doc.file_name },
+        })
+      }
+    } catch (error) {
+      console.error('View error:', error)
+      alert('Failed to open file')
+    }
+  }
+
   const handleDownload = async (doc: Document) => {
     try {
       const url = await getDocumentUrl(doc.file_path)
       if (url) {
-        // Create temporary link and trigger download
+        // Force download
         const link = document.createElement('a')
         link.href = url
         link.download = doc.file_name
@@ -433,8 +470,15 @@ export default function DocumentsPage() {
 
                     <div className="flex items-center space-x-2 sm:ml-4">
                       <button
-                        onClick={() => handleDownload(doc)}
+                        onClick={() => handleView(doc)}
                         className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                        title={isImage(doc.file_type) ? "View Image" : "Open File"}
+                      >
+                        <Eye className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => handleDownload(doc)}
+                        className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded"
                         title="Download"
                       >
                         <Download className="h-5 w-5" />
@@ -442,7 +486,7 @@ export default function DocumentsPage() {
                       {doc.status === 'draft' && (profile.role === 'staff' || profile.role === 'admin') && (
                         <button
                           onClick={() => openApprovalModal(doc)}
-                          className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded"
+                          className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded"
                           title="Request Approval"
                         >
                           <CheckCircle className="h-5 w-5" />
@@ -530,6 +574,55 @@ export default function DocumentsPage() {
                 >
                   {submittingApproval ? 'Submitting...' : 'Request Approval'}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Image Viewer Modal */}
+        {showImageViewer && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50"
+            onClick={() => setShowImageViewer(false)}
+          >
+            <div className="relative max-w-7xl max-h-screen p-4 w-full h-full flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white">
+                  {viewingImageName}
+                </h3>
+                <button
+                  onClick={() => setShowImageViewer(false)}
+                  className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                  title="Close"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Image Container */}
+              <div
+                className="flex-1 flex items-center justify-center overflow-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <img
+                  src={viewingImageUrl}
+                  alt={viewingImageName}
+                  className="max-w-full max-h-full object-contain rounded-lg"
+                />
+              </div>
+
+              {/* Download Button */}
+              <div className="mt-4 flex justify-center">
+                <a
+                  href={viewingImageUrl}
+                  download
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Download Image</span>
+                </a>
               </div>
             </div>
           </div>

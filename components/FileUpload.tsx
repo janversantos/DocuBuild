@@ -12,8 +12,15 @@ interface FileUploadProps {
   onUploadComplete?: () => void
 }
 
+interface PendingFile {
+  file: File
+  customName: string
+  id: string
+}
+
 interface UploadingFile {
   file: File
+  customName: string
   progress: 'uploading' | 'success' | 'error'
   error?: string
 }
@@ -24,57 +31,78 @@ export default function FileUpload({
   onUploadComplete,
 }: FileUploadProps) {
   const { user } = useAuth()
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([])
 
-  const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
-      if (!user) return
-
-      // Add files to uploading state
-      const newFiles = acceptedFiles.map((file) => ({
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    // Add files to pending state with default names (without extension)
+    const newFiles = acceptedFiles.map((file) => {
+      const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '')
+      return {
         file,
-        progress: 'uploading' as const,
-      }))
-      setUploadingFiles((prev) => [...prev, ...newFiles])
-
-      // Upload each file
-      for (let i = 0; i < acceptedFiles.length; i++) {
-        const file = acceptedFiles[i]
-        const result = await uploadDocument({
-          file,
-          userId: user.id,
-          projectId,
-          categoryId,
-        })
-
-        // Update file status
-        setUploadingFiles((prev) =>
-          prev.map((uf) =>
-            uf.file === file
-              ? {
-                  ...uf,
-                  progress: result.success ? 'success' : 'error',
-                  error: result.error,
-                }
-              : uf
-          )
-        )
+        customName: nameWithoutExt,
+        id: `${Date.now()}-${Math.random()}`,
       }
+    })
+    setPendingFiles((prev) => [...prev, ...newFiles])
+  }, [])
 
-      // Call callback after all uploads complete
-      if (onUploadComplete) {
-        onUploadComplete()
-      }
+  const updateFileName = (id: string, newName: string) => {
+    setPendingFiles((prev) =>
+      prev.map((pf) => (pf.id === id ? { ...pf, customName: newName } : pf))
+    )
+  }
 
-      // Clear successful uploads after 3 seconds
-      setTimeout(() => {
-        setUploadingFiles((prev) =>
-          prev.filter((uf) => uf.progress !== 'success')
+  const removePendingFile = (id: string) => {
+    setPendingFiles((prev) => prev.filter((pf) => pf.id !== id))
+  }
+
+  const handleUploadAll = async () => {
+    if (!user || pendingFiles.length === 0) return
+
+    // Move pending files to uploading state
+    const filesToUpload = pendingFiles.map((pf) => ({
+      file: pf.file,
+      customName: pf.customName,
+      progress: 'uploading' as const,
+    }))
+    setUploadingFiles((prev) => [...prev, ...filesToUpload])
+    setPendingFiles([])
+
+    // Upload each file
+    for (const pending of pendingFiles) {
+      const result = await uploadDocument({
+        file: pending.file,
+        userId: user.id,
+        projectId,
+        categoryId,
+        customTitle: pending.customName,
+      })
+
+      // Update file status
+      setUploadingFiles((prev) =>
+        prev.map((uf) =>
+          uf.file === pending.file
+            ? {
+                ...uf,
+                progress: result.success ? 'success' : 'error',
+                error: result.error,
+              }
+            : uf
         )
-      }, 3000)
-    },
-    [user, projectId, categoryId, onUploadComplete]
-  )
+      )
+    }
+
+    // Call callback after all uploads complete
+    if (onUploadComplete) {
+      onUploadComplete()
+    }
+
+    // Clear successful uploads after 3 seconds
+    setTimeout(() => {
+      setUploadingFiles((prev) => prev.filter((uf) => uf.progress !== 'success'))
+    }, 3000)
+  }
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -92,7 +120,7 @@ export default function FileUpload({
     maxSize: 50 * 1024 * 1024, // 50MB
   })
 
-  const removeFile = (file: File) => {
+  const removeUploadingFile = (file: File) => {
     setUploadingFiles((prev) => prev.filter((uf) => uf.file !== file))
   }
 
@@ -123,6 +151,59 @@ export default function FileUpload({
         )}
       </div>
 
+      {/* Pending Files - Ready to Upload */}
+      {pendingFiles.length > 0 && (
+        <div className="mt-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-gray-700">
+              Ready to upload ({pendingFiles.length} file{pendingFiles.length > 1 ? 's' : ''})
+            </h3>
+            <button
+              onClick={handleUploadAll}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            >
+              Upload All
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {pendingFiles.map((pf) => (
+              <div
+                key={pf.id}
+                className="p-3 bg-blue-50 border border-blue-200 rounded-lg"
+              >
+                <div className="flex items-start space-x-3">
+                  <FileText className="h-5 w-5 text-blue-500 mt-1 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Document Name
+                    </label>
+                    <input
+                      type="text"
+                      value={pf.customName}
+                      onChange={(e) => updateFileName(pf.id, e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter document name..."
+                    />
+                    <div className="mt-1 flex items-center justify-between text-xs text-gray-500">
+                      <span>Original: {pf.file.name}</span>
+                      <span>{(pf.file.size / 1024 / 1024).toFixed(2)} MB</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => removePendingFile(pf.id)}
+                    className="text-gray-400 hover:text-red-600 flex-shrink-0"
+                    title="Remove"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Uploading Files List */}
       {uploadingFiles.length > 0 && (
         <div className="mt-4 space-y-2">
@@ -135,7 +216,7 @@ export default function FileUpload({
                 <FileText className="h-5 w-5 text-gray-400" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">
-                    {uf.file.name}
+                    {uf.customName}
                   </p>
                   <p className="text-xs text-gray-500">
                     {(uf.file.size / 1024 / 1024).toFixed(2)} MB
@@ -165,7 +246,7 @@ export default function FileUpload({
                       {uf.error || 'Failed'}
                     </span>
                     <button
-                      onClick={() => removeFile(uf.file)}
+                      onClick={() => removeUploadingFile(uf.file)}
                       className="text-gray-400 hover:text-gray-600"
                     >
                       <X className="h-4 w-4" />

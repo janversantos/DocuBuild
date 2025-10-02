@@ -6,6 +6,7 @@ export interface UploadFileParams {
   userId: string
   projectId?: string
   categoryId?: string
+  customTitle?: string
 }
 
 export interface UploadResult {
@@ -22,11 +23,15 @@ export async function uploadDocument({
   userId,
   projectId,
   categoryId,
+  customTitle,
 }: UploadFileParams): Promise<UploadResult> {
   try {
     // Generate unique file path: userId/timestamp_filename
     const timestamp = Date.now()
     const filePath = `${userId}/${timestamp}_${file.name}`
+
+    // Use custom title if provided, otherwise use original file name
+    const documentTitle = customTitle || file.name
 
     // Upload to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -45,7 +50,7 @@ export async function uploadDocument({
     const { data: docData, error: docError } = await supabase
       .from('documents')
       .insert({
-        title: file.name,
+        title: documentTitle,
         file_name: file.name,
         file_path: filePath,
         file_size: file.size,
