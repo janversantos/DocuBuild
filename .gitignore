@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# private business and client documentation
+PROPOSAL.md
+PROPOSAL_REFERENCES.md
+PROJECT_STATUS.md
+mega-context-pack.md
+TRIAL_AGREEMENT.md
+TRIAL_ONBOARDING_EMAIL.md
+CLIENT_TIMELINE_EMAIL.md
+PRIVACY_SECURITY_ADDENDUM.md
