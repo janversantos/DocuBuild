@@ -188,14 +188,14 @@ export default function ApprovalsPage() {
               {pendingRequests.map((request) => (
                 <div
                   key={request.id}
-                  className="px-6 py-4 hover:bg-gray-50 transition-colors"
+                  className="px-4 sm:px-6 py-4 hover:bg-gray-50 transition-colors"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-4 flex-1">
-                      <FileText className="h-6 w-6 text-yellow-500 mt-1" />
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div className="flex items-start space-x-3 flex-1 min-w-0">
+                      <FileText className="h-6 w-6 text-yellow-500 mt-1 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-medium text-gray-900">
-                          {request.document?.file_name || 'Unknown Document'}
+                        <h3 className="text-sm font-medium text-gray-900 truncate">
+                          {request.document?.title || request.document?.file_name || 'Unknown Document'}
                         </h3>
                         <div className="mt-1 text-xs text-gray-500 space-y-1">
                           <div>
@@ -205,7 +205,7 @@ export default function ApprovalsPage() {
                             Requested: {format(new Date(request.created_at), 'MMM d, yyyy h:mm a')}
                           </div>
                           {request.comments && (
-                            <div className="mt-2 p-2 bg-gray-50 rounded text-gray-700">
+                            <div className="mt-2 p-2 bg-gray-50 rounded text-gray-700 break-words">
                               <span className="font-medium">Request notes:</span> {request.comments}
                             </div>
                           )}
@@ -213,17 +213,17 @@ export default function ApprovalsPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-2 ml-4">
+                    <div className="flex items-center space-x-2 sm:ml-4">
                       <button
                         onClick={() => openResponseModal(request, 'approved')}
-                        className="px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center space-x-1"
+                        className="flex-1 sm:flex-none px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center justify-center space-x-1"
                       >
                         <CheckCircle className="h-4 w-4" />
                         <span>Approve</span>
                       </button>
                       <button
                         onClick={() => openResponseModal(request, 'rejected')}
-                        className="px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 flex items-center space-x-1"
+                        className="flex-1 sm:flex-none px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 flex items-center justify-center space-x-1"
                       >
                         <XCircle className="h-4 w-4" />
                         <span>Reject</span>
@@ -253,14 +253,14 @@ export default function ApprovalsPage() {
               {completedRequests.map((request) => (
                 <div
                   key={request.id}
-                  className="px-6 py-4"
+                  className="px-4 sm:px-6 py-4"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-4 flex-1">
-                      <FileText className="h-6 w-6 text-gray-400 mt-1" />
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div className="flex items-start space-x-3 flex-1 min-w-0">
+                      <FileText className="h-6 w-6 text-gray-400 mt-1 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-medium text-gray-900">
-                          {request.document?.file_name || 'Unknown Document'}
+                        <h3 className="text-sm font-medium text-gray-900 truncate">
+                          {request.document?.title || request.document?.file_name || 'Unknown Document'}
                         </h3>
                         <div className="mt-1 text-xs text-gray-500 space-y-1">
                           <div>
@@ -270,7 +270,7 @@ export default function ApprovalsPage() {
                             Responded: {request.responded_at ? format(new Date(request.responded_at), 'MMM d, yyyy h:mm a') : 'N/A'}
                           </div>
                           {request.comments && (
-                            <div className="mt-2 p-2 bg-gray-50 rounded text-gray-700">
+                            <div className="mt-2 p-2 bg-gray-50 rounded text-gray-700 break-words">
                               <span className="font-medium">Response notes:</span> {request.comments}
                             </div>
                           )}
@@ -279,7 +279,7 @@ export default function ApprovalsPage() {
                     </div>
 
                     <span
-                      className={`px-3 py-1 text-xs font-medium rounded ${
+                      className={`px-3 py-1 text-xs font-medium rounded whitespace-nowrap self-start ${
                         request.status === 'approved'
                           ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
