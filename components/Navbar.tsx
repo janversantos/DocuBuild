@@ -61,7 +61,15 @@ export default function Navbar() {
               <div className="text-xs text-gray-500">({profile?.role})</div>
             </div>
             <button
-              onClick={() => signOut()}
+              onClick={async () => {
+                try {
+                  await signOut()
+                } catch (error) {
+                  console.error('Sign out error:', error)
+                  // Force redirect anyway
+                  window.location.href = '/login'
+                }
+              }}
               className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
             >
               <LogOut className="h-4 w-4 mr-2" />

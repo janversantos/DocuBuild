@@ -49,3 +49,6 @@ TRIAL_AGREEMENT.md
 TRIAL_ONBOARDING_EMAIL.md
 CLIENT_TIMELINE_EMAIL.md
 PRIVACY_SECURITY_ADDENDUM.md
+
+# database scripts (keep private)
+*.sql

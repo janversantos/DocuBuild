@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import Navbar from '@/components/Navbar'
 import FileUpload from '@/components/FileUpload'
@@ -14,10 +14,11 @@ import { Download, Trash2, FileText, Search, CheckCircle, Eye, X } from 'lucide-
 export default function DocumentsPage() {
   const { user, profile, loading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [documents, setDocuments] = useState<Document[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [projects, setProjects] = useState<Project[]>([])
-  const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [selectedProject, setSelectedProject] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
   const [loadingDocs, setLoadingDocs] = useState(true)
@@ -46,6 +47,14 @@ export default function DocumentsPage() {
     }
   }, [user])
 
+  // Handle URL params (project from query string)
+  useEffect(() => {
+    const projectParam = searchParams.get('project')
+    if (projectParam) {
+      setSelectedProject(projectParam)
+    }
+  }, [searchParams])
+
   const fetchDocuments = async () => {
     setLoadingDocs(true)
     try {
@@ -64,8 +73,9 @@ export default function DocumentsPage() {
         const categoryIds = [...new Set(data.map(d => d.category_id).filter(Boolean))]
         const projectIds = [...new Set(data.map(d => d.project_id).filter(Boolean))]
         const uploaderIds = [...new Set(data.map(d => d.uploaded_by).filter(Boolean))]
+        const documentIds = data.map(d => d.id)
 
-        const [categoriesData, projectsData, uploadersData] = await Promise.all([
+        const [categoriesData, projectsData, uploadersData, approvalsData] = await Promise.all([
           categoryIds.length > 0
             ? supabase.from('categories').select('*').in('id', categoryIds)
             : { data: [] },
@@ -75,15 +85,35 @@ export default function DocumentsPage() {
           uploaderIds.length > 0
             ? supabase.from('profiles').select('id, full_name').in('id', uploaderIds)
             : { data: [] },
+          documentIds.length > 0
+            ? supabase.from('approval_requests')
+                .select('document_id, approver_id, status, responded_at, response_comments')
+                .in('document_id', documentIds)
+                .in('status', ['approved', 'rejected'])
+                .order('responded_at', { ascending: false })
+            : { data: [] },
         ])
 
+        // Get approver profiles
+        const approverIds = [...new Set(approvalsData.data?.map(a => a.approver_id).filter(Boolean) || [])]
+        const approversData = approverIds.length > 0
+          ? await supabase.from('profiles').select('id, full_name').in('id', approverIds)
+          : { data: [] }
+
         // Map related data back to documents
-        const enrichedData = data.map(doc => ({
-          ...doc,
-          category: categoriesData.data?.find(c => c.id === doc.category_id),
-          project: projectsData.data?.find(p => p.id === doc.project_id),
-          uploader: uploadersData.data?.find(u => u.id === doc.uploaded_by),
-        }))
+        const enrichedData = data.map(doc => {
+          const approval = approvalsData.data?.find(a => a.document_id === doc.id)
+          return {
+            ...doc,
+            category: categoriesData.data?.find(c => c.id === doc.category_id),
+            project: projectsData.data?.find(p => p.id === doc.project_id),
+            uploader: uploadersData.data?.find(u => u.id === doc.uploaded_by),
+            approval: approval ? {
+              ...approval,
+              approver: approversData.data?.find(u => u.id === approval.approver_id)
+            } : null,
+          }
+        })
 
         setDocuments(enrichedData)
       } else {
@@ -253,16 +283,20 @@ export default function DocumentsPage() {
   }
 
   // Filter documents
-  const filteredDocuments = documents.filter((doc) => {
+  // Special logic: If project is selected but no category chosen, show nothing (user must pick category)
+  const shouldShowDocuments = !selectedProject || selectedCategory !== null
+
+  const filteredDocuments = shouldShowDocuments ? documents.filter((doc) => {
     const matchesSearch = doc.file_name
       .toLowerCase()
       .includes(searchQuery.toLowerCase())
+    // selectedCategory === '' means "All Categories", null means nothing selected
     const matchesCategory =
-      !selectedCategory || doc.category_id === selectedCategory
+      selectedCategory === null || selectedCategory === '' || doc.category_id === selectedCategory
     const matchesProject = !selectedProject || doc.project_id === selectedProject
 
     return matchesSearch && matchesCategory && matchesProject
-  })
+  }) : []
 
   if (loading || !user || !profile) {
     return (
@@ -285,21 +319,22 @@ export default function DocumentsPage() {
           </p>
         </div>
 
-        {/* Upload Section */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Upload Documents
-            </h2>
-            <button
-              onClick={() => setShowUpload(!showUpload)}
-              className="text-sm text-blue-600 hover:text-blue-700"
-            >
-              {showUpload ? 'Hide' : 'Show'} Upload
-            </button>
-          </div>
+        {/* Upload Section - Hide for Viewers */}
+        {profile.role !== 'viewer' && (
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Upload Documents
+              </h2>
+              <button
+                onClick={() => setShowUpload(!showUpload)}
+                className="text-sm text-blue-600 hover:text-blue-700"
+              >
+                {showUpload ? 'Hide' : 'Show'} Upload
+              </button>
+            </div>
 
-          {showUpload && (
+            {showUpload && (
             <div className="space-y-4">
               {/* Project and Category Selection */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -348,11 +383,12 @@ export default function DocumentsPage() {
               />
             </div>
           )}
-        </div>
+          </div>
+        )}
 
-        {/* Search and Filters */}
+        {/* Search and Project Filter */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
@@ -376,19 +412,35 @@ export default function DocumentsPage() {
                 </option>
               ))}
             </select>
+          </div>
+        </div>
 
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+        {/* Category Chips */}
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:flex md:flex-wrap gap-2">
+            <button
+              onClick={() => setSelectedCategory('')}
+              className={`px-4 py-3 md:py-2 rounded-full whitespace-nowrap font-medium transition-colors ${
+                selectedCategory === ''
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
             >
-              <option value="">All Categories</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+              All Categories
+            </button>
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                onClick={() => setSelectedCategory(category.id)}
+                className={`px-4 py-3 md:py-2 rounded-full whitespace-nowrap font-medium transition-colors ${
+                  selectedCategory === category.id
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {category.name}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -403,6 +455,16 @@ export default function DocumentsPage() {
           {loadingDocs ? (
             <div className="p-8 text-center">
               <p className="text-gray-500">Loading documents...</p>
+            </div>
+          ) : !shouldShowDocuments ? (
+            <div className="p-8 text-center">
+              <FileText className="mx-auto h-12 w-12 text-blue-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Select a category to view documents
+              </h3>
+              <p className="text-gray-500">
+                Choose a category from the options above to see documents for this project
+              </p>
             </div>
           ) : filteredDocuments.length === 0 ? (
             <div className="p-8 text-center">
@@ -465,6 +527,15 @@ export default function DocumentsPage() {
                           Uploaded {format(new Date(doc.created_at), 'MMM d, yyyy')}
                           {doc.uploader && <> by {doc.uploader.full_name}</>}
                         </div>
+                        {doc.approval && doc.approval.responded_at && (
+                          <div className={`mt-1 text-xs font-medium ${
+                            doc.approval.status === 'approved'
+                              ? 'text-green-600'
+                              : 'text-red-600'
+                          }`}>
+                            {doc.approval.status === 'approved' ? 'Approved' : 'Rejected'} by {doc.approval.approver?.full_name || 'Unknown'} on {format(new Date(doc.approval.responded_at), 'MMM d, yyyy \'at\' h:mm a')}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -483,7 +554,12 @@ export default function DocumentsPage() {
                       >
                         <Download className="h-5 w-5" />
                       </button>
-                      {doc.status === 'draft' && (profile.role === 'staff' || profile.role === 'admin') && (
+                      {/* Request Approval Button */}
+                      {doc.status === 'draft' && profile.role !== 'viewer' && (
+                        // Staff can only request approval for their own docs
+                        // Approver and Admin can request for any doc
+                        (profile.role === 'staff' ? doc.uploaded_by === user.id : true)
+                      ) && (
                         <button
                           onClick={() => openApprovalModal(doc)}
                           className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded"
@@ -492,8 +568,12 @@ export default function DocumentsPage() {
                           <CheckCircle className="h-5 w-5" />
                         </button>
                       )}
-                      {(profile.role === 'admin' ||
-                        doc.uploaded_by === user.id) && (
+                      {/* Delete Button */}
+                      {profile.role !== 'viewer' && (
+                        // Admin can delete any doc
+                        // Staff and Approver can only delete their own docs
+                        (profile.role === 'admin' || doc.uploaded_by === user.id)
+                      ) && (
                         <button
                           onClick={() => handleDelete(doc)}
                           className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"

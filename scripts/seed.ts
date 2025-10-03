@@ -14,11 +14,20 @@ dotenv.config({ path: '.env.local' })
 
 // Get Supabase credentials from environment
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-if (!supabaseUrl || !supabaseKey) {
+if (!supabaseUrl || !supabaseAnonKey) {
   console.error('❌ Missing Supabase credentials in .env.local')
   process.exit(1)
+}
+
+// Use service role key if available (bypasses RLS), otherwise use anon key
+const supabaseKey = supabaseServiceKey || supabaseAnonKey
+if (!supabaseServiceKey) {
+  console.warn('⚠️  SUPABASE_SERVICE_ROLE_KEY not found in .env.local')
+  console.warn('⚠️  Using anon key - this may fail due to RLS policies')
+  console.warn('💡 Add SUPABASE_SERVICE_ROLE_KEY to .env.local for reliable seeding\n')
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -69,45 +78,52 @@ const sampleProjects = [
     name: 'Residential Complex - Phase 1',
     description: '50-unit residential development in Quezon City',
     project_code: 'PROJ-2025-003',
-    status: 'active',
+    status: 'planning',
   },
   {
     name: 'Bridge Rehabilitation',
     description: 'Repair and strengthening of existing bridge structure',
     project_code: 'PROJ-2024-087',
-    status: 'active',
+    status: 'completed',
   },
 ]
 
 // Sample documents (metadata only - actual files would need to be uploaded)
 const sampleDocuments = [
   // Main Office Building docs
-  { title: 'Payment Voucher - January 2025', category: 'Payment Vouchers', project: 0 },
-  { title: 'Site Progress Report - Week 1', category: 'Site Reports', project: 0 },
-  { title: 'Construction Contract Agreement', category: 'Contracts', project: 0 },
-  { title: 'Building Permit', category: 'Permits', project: 0 },
-  { title: 'Architectural Drawing - Floor Plan', category: 'Drawings', project: 0 },
-  { title: 'Site Photo - Foundation Work', category: 'Photos', project: 0 },
+  { title: 'Notice of Award - Main Office Building', category: 'NOA', project: 0 },
+  { title: 'Notice to Proceed - January 2025', category: 'NTP', project: 0 },
+  { title: 'Construction Contract Agreement', category: 'CONTRACT', project: 0 },
+  { title: 'Work Accomplishment Report - Week 1', category: 'SWA', project: 0 },
+  { title: 'Straight Line Diagram - Foundation', category: 'SLD', project: 0 },
+  { title: 'Site Photo - Foundation Work', category: 'PHOTOS', project: 0 },
+  { title: 'Material Expenses - January', category: 'PROJECT EXPENSES', project: 0 },
+  { title: 'Billing Statement - Milestone 1', category: 'BILLING REQUEST', project: 0 },
 
   // Highway Expansion docs
-  { title: 'Government Contract - Signed', category: 'Contracts', project: 1 },
-  { title: 'Payment Request - Milestone 1', category: 'Payment Vouchers', project: 1 },
-  { title: 'Environmental Compliance Certificate', category: 'Permits', project: 1 },
-  { title: 'Weekly Progress Report - Jan 2025', category: 'Site Reports', project: 1 },
-  { title: 'Engineer Inspection Report', category: 'Site Reports', project: 1 },
+  { title: 'Government Contract - Highway Expansion', category: 'CONTRACT', project: 1 },
+  { title: 'Payment Request - Milestone 1', category: 'REQUEST FOR PAYMENT', project: 1 },
+  { title: 'Notice of Award - Highway Project', category: 'NOA', project: 1 },
+  { title: 'Notice to Proceed - Highway Widening', category: 'NTP', project: 1 },
+  { title: 'Progress Photos - Week 2', category: 'PHOTOS', project: 1 },
+  { title: 'Equipment Rental Expenses', category: 'PROJECT EXPENSES', project: 1 },
+  { title: 'Monthly Billing Request - February', category: 'BILLING REQUEST', project: 1 },
 
   // Residential Complex docs
-  { title: 'Development Permit', category: 'Permits', project: 2 },
-  { title: 'Site Plan - Approved', category: 'Drawings', project: 2 },
-  { title: 'Material Invoice - Concrete', category: 'Invoices', project: 2 },
-  { title: 'Labor Payment Voucher', category: 'Payment Vouchers', project: 2 },
-  { title: 'Safety Inspection Report', category: 'Site Reports', project: 2 },
+  { title: 'NOA - Residential Development', category: 'NOA', project: 2 },
+  { title: 'NTP - Phase 1 Construction', category: 'NTP', project: 2 },
+  { title: 'Development Contract Agreement', category: 'CONTRACT', project: 2 },
+  { title: 'Site Photos - Excavation', category: 'PHOTOS', project: 2 },
+  { title: 'Labor and Materials Expenses', category: 'PROJECT EXPENSES', project: 2 },
+  { title: 'Progress Billing Request', category: 'BILLING REQUEST', project: 2 },
 
   // Bridge Rehabilitation docs
-  { title: 'Structural Assessment Report', category: 'Site Reports', project: 3 },
-  { title: 'Repair Contract', category: 'Contracts', project: 3 },
-  { title: 'Engineering Plans - Revised', category: 'Drawings', project: 3 },
-  { title: 'Material Procurement Invoice', category: 'Invoices', project: 3 },
+  { title: 'Bridge Repair Contract', category: 'CONTRACT', project: 3 },
+  { title: 'Accomplishment Report - Week 3', category: 'SWA', project: 3 },
+  { title: 'As-Built Straight Line Diagram', category: 'SLD', project: 3 },
+  { title: 'Before and After Photos', category: 'PHOTOS', project: 3 },
+  { title: 'Repair Materials Expenses', category: 'PROJECT EXPENSES', project: 3 },
+  { title: 'Final Payment Request', category: 'REQUEST FOR PAYMENT', project: 3 },
 ]
 
 async function createUsers() {
