@@ -33,6 +33,13 @@ export async function uploadDocument({
     // Use custom title if provided, otherwise use original file name
     const documentTitle = customTitle || file.name
 
+    // Get file extension
+    const fileExtension = file.name.split('.').pop()
+    // Create display filename from custom title + extension
+    const displayFileName = customTitle
+      ? `${customTitle}.${fileExtension}`
+      : file.name
+
     // Upload to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('documents')
@@ -51,7 +58,7 @@ export async function uploadDocument({
       .from('documents')
       .insert({
         title: documentTitle,
-        file_name: file.name,
+        file_name: displayFileName,
         file_path: filePath,
         file_size: file.size,
         file_type: file.type,

@@ -489,7 +489,7 @@ function DocumentsContent() {
                       <FileText className="h-6 w-6 text-gray-400 mt-1 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-medium text-gray-900 truncate">
-                          {doc.file_name}
+                          {doc.title || doc.file_name}
                         </h3>
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                           {doc.file_size && (
@@ -503,7 +503,7 @@ function DocumentsContent() {
                             </span>
                           )}
                           {doc.project && (
-                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded whitespace-nowrap">
+                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded max-w-[200px] truncate inline-block" title={doc.project.name}>
                               {doc.project.name}
                             </span>
                           )}
