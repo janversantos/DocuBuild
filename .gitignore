@@ -53,5 +53,7 @@ SALES_PRESENTATION_GUIDE.md
 ROI_CALCULATOR.md
 FIRST_CLIENT_PRICING.md
 
-# database scripts (keep private)
+# database scripts and seed data (keep private)
 *.sql
+scripts/
+SEED_DATA_README.md
