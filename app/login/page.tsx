@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
-import { supabase } from '@/lib/supabase'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -16,7 +15,7 @@ export default function LoginPage() {
   const { signIn } = useAuth()
   const router = useRouter()
 
-  // Check if IP is blocked on page load
+  // Check if blocked on page load using localStorage
   useEffect(() => {
     checkRateLimit()
   }, [])
@@ -28,6 +27,7 @@ export default function LoginPage() {
         setBlockTimeRemaining(prev => {
           if (prev <= 1) {
             setBlocked(false)
+            localStorage.removeItem('login_attempts')
             return 0
           }
           return prev - 1
@@ -37,79 +37,43 @@ export default function LoginPage() {
     }
   }, [blockTimeRemaining])
 
-  const checkRateLimit = async () => {
-    try {
-      const { data: attempt } = await supabase
-        .from('login_attempts')
-        .select('*')
-        .eq('ip_address', 'browser-session') // Using session ID for client-side
-        .single()
+  const checkRateLimit = () => {
+    const attemptsData = localStorage.getItem('login_attempts')
+    if (!attemptsData) return
 
-      if (attempt?.blocked_until) {
-        const blockedUntil = new Date(attempt.blocked_until)
-        const now = new Date()
+    const attempts = JSON.parse(attemptsData)
+    const now = new Date()
+    const blockedUntil = new Date(attempts.blockedUntil)
 
-        if (now < blockedUntil) {
-          setBlocked(true)
-          setBlockTimeRemaining(Math.ceil((blockedUntil.getTime() - now.getTime()) / 1000))
-        }
-      }
-    } catch (error) {
-      // No existing record or error - allow login
+    if (now < blockedUntil) {
+      setBlocked(true)
+      setBlockTimeRemaining(Math.ceil((blockedUntil.getTime() - now.getTime()) / 1000))
+    } else {
+      // Block expired, clear it
+      localStorage.removeItem('login_attempts')
     }
   }
 
-  const recordFailedAttempt = async () => {
-    try {
-      const { data: existing } = await supabase
-        .from('login_attempts')
-        .select('*')
-        .eq('ip_address', 'browser-session')
-        .single()
+  const recordFailedAttempt = () => {
+    const attemptsData = localStorage.getItem('login_attempts')
+    const now = new Date()
 
-      const now = new Date()
+    let attempts = attemptsData ? JSON.parse(attemptsData) : { count: 0 }
+    attempts.count++
 
-      if (existing) {
-        const newCount = (existing.attempt_count || 0) + 1
+    if (attempts.count >= 5) {
+      // Block for 15 minutes
+      const blockUntil = new Date(now.getTime() + 15 * 60 * 1000)
+      attempts.blockedUntil = blockUntil.toISOString()
 
-        if (newCount >= 5) {
-          // Block for 15 minutes
-          const blockUntil = new Date(now.getTime() + 15 * 60 * 1000)
+      localStorage.setItem('login_attempts', JSON.stringify(attempts))
 
-          await supabase
-            .from('login_attempts')
-            .update({
-              attempt_count: newCount,
-              blocked_until: blockUntil.toISOString(),
-              last_attempt: now.toISOString(),
-            })
-            .eq('ip_address', 'browser-session')
-
-          setBlocked(true)
-          setBlockTimeRemaining(15 * 60)
-          setError('Too many failed attempts. Account locked for 15 minutes.')
-        } else {
-          await supabase
-            .from('login_attempts')
-            .update({
-              attempt_count: newCount,
-              last_attempt: now.toISOString(),
-            })
-            .eq('ip_address', 'browser-session')
-
-          setError(`Invalid credentials. ${5 - newCount} attempts remaining.`)
-        }
-      } else {
-        // Create new record
-        await supabase.from('login_attempts').insert({
-          ip_address: 'browser-session',
-          attempt_count: 1,
-          last_attempt: now.toISOString(),
-        })
-        setError('Invalid credentials. 4 attempts remaining.')
-      }
-    } catch (error) {
-      console.error('Rate limit error:', error)
+      setBlocked(true)
+      setBlockTimeRemaining(15 * 60)
+      setError('Too many failed attempts. Account locked for 15 minutes.')
+    } else {
+      localStorage.setItem('login_attempts', JSON.stringify(attempts))
+      setError(`Invalid credentials. ${5 - attempts.count} attempts remaining.`)
     }
   }
 
@@ -129,14 +93,11 @@ export default function LoginPage() {
     try {
       await signIn(email, password)
       // Success - reset attempts
-      await supabase
-        .from('login_attempts')
-        .delete()
-        .eq('ip_address', 'browser-session')
+      localStorage.removeItem('login_attempts')
       router.push('/dashboard')
     } catch (err: any) {
       // Failed login - record attempt
-      await recordFailedAttempt()
+      recordFailedAttempt()
     } finally {
       setLoading(false)
     }
