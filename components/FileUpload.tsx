@@ -47,6 +47,21 @@ export default function FileUpload({
     setPendingFiles((prev) => [...prev, ...newFiles])
   }, [])
 
+  const onDropRejected = useCallback((rejectedFiles: any[]) => {
+    rejectedFiles.forEach((rejection) => {
+      const errors = rejection.errors.map((e: any) => {
+        if (e.code === 'file-too-large') {
+          return `File is too large (max 50MB)`
+        }
+        if (e.code === 'file-invalid-type') {
+          return `Invalid file type. Allowed: PDF, Word, Excel, Images`
+        }
+        return e.message
+      })
+      alert(`${rejection.file.name}: ${errors.join(', ')}`)
+    })
+  }, [])
+
   const updateFileName = (id: string, newName: string) => {
     setPendingFiles((prev) =>
       prev.map((pf) => (pf.id === id ? { ...pf, customName: newName } : pf))
@@ -106,6 +121,7 @@ export default function FileUpload({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    onDropRejected,
     accept: {
       'application/pdf': ['.pdf'],
       'application/msword': ['.doc'],

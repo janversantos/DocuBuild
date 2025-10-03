@@ -1,6 +1,18 @@
 // Supabase Storage Helper Functions
 import { supabase } from './supabase'
 
+/**
+ * Sanitize filename to prevent directory traversal and XSS attacks
+ */
+function sanitizeFileName(fileName: string): string {
+  return fileName
+    .replace(/[^a-zA-Z0-9._-]/g, '_') // Remove special chars
+    .replace(/\.{2,}/g, '_')          // Remove directory traversal (..)
+    .replace(/^\.+/, '')              // Remove leading dots
+    .replace(/_{2,}/g, '_')           // Replace multiple underscores
+    .substring(0, 255)                // Limit length
+}
+
 export interface UploadFileParams {
   file: File
   userId: string
@@ -26,19 +38,27 @@ export async function uploadDocument({
   customTitle,
 }: UploadFileParams): Promise<UploadResult> {
   try {
+    // Sanitize filename to prevent directory traversal and XSS
+    const sanitizedOriginalName = sanitizeFileName(file.name)
+
     // Generate unique file path: userId/timestamp_filename
     const timestamp = Date.now()
-    const filePath = `${userId}/${timestamp}_${file.name}`
+    const filePath = `${userId}/${timestamp}_${sanitizedOriginalName}`
 
-    // Use custom title if provided, otherwise use original file name
-    const documentTitle = customTitle || file.name
+    // Sanitize custom title if provided
+    const sanitizedTitle = customTitle
+      ? sanitizeFileName(customTitle)
+      : sanitizeFileName(file.name.replace(/\.[^/.]+$/, '')) // Remove extension
+
+    // Use sanitized title
+    const documentTitle = sanitizedTitle
 
     // Get file extension
     const fileExtension = file.name.split('.').pop()
     // Create display filename from custom title + extension
     const displayFileName = customTitle
-      ? `${customTitle}.${fileExtension}`
-      : file.name
+      ? `${sanitizedTitle}.${fileExtension}`
+      : sanitizedOriginalName
 
     // Upload to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
