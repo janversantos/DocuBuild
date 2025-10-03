@@ -87,7 +87,7 @@ function DocumentsContent() {
             : { data: [] },
           documentIds.length > 0
             ? supabase.from('approval_requests')
-                .select('document_id, approver_id, status, responded_at, response_comments')
+                .select('document_id, approver_id, status, responded_at, comments')
                 .in('document_id', documentIds)
                 .in('status', ['approved', 'rejected'])
                 .order('responded_at', { ascending: false })
@@ -100,17 +100,33 @@ function DocumentsContent() {
           ? await supabase.from('profiles').select('id, full_name').in('id', approverIds)
           : { data: [] }
 
+        // Get ALL approval requests (including pending) for timeline
+        const allApprovalsData = documentIds.length > 0
+          ? await supabase.from('approval_requests')
+              .select('document_id, approver_id, requested_by, status, created_at, responded_at, comments')
+              .in('document_id', documentIds)
+              .order('created_at', { ascending: false })
+          : { data: [] }
+
+        // Get requester profiles
+        const requesterIds = [...new Set(allApprovalsData.data?.map(a => a.requested_by).filter(Boolean) || [])]
+        const requestersData = requesterIds.length > 0
+          ? await supabase.from('profiles').select('id, full_name').in('id', requesterIds)
+          : { data: [] }
+
         // Map related data back to documents
         const enrichedData = data.map(doc => {
-          const approval = approvalsData.data?.find(a => a.document_id === doc.id)
+          // Get latest approval for this document
+          const latestApproval = allApprovalsData.data?.find(a => a.document_id === doc.id)
           return {
             ...doc,
             category: categoriesData.data?.find(c => c.id === doc.category_id),
             project: projectsData.data?.find(p => p.id === doc.project_id),
             uploader: uploadersData.data?.find(u => u.id === doc.uploaded_by),
-            approval: approval ? {
-              ...approval,
-              approver: approversData.data?.find(u => u.id === approval.approver_id)
+            approval: latestApproval ? {
+              ...latestApproval,
+              approver: approversData.data?.find(u => u.id === latestApproval.approver_id),
+              requester: requestersData.data?.find(u => u.id === latestApproval.requested_by)
             } : null,
           }
         })
@@ -527,13 +543,25 @@ function DocumentsContent() {
                           Uploaded {format(new Date(doc.created_at), 'MMM d, yyyy')}
                           {doc.uploader && <> by {doc.uploader.full_name}</>}
                         </div>
-                        {doc.approval && doc.approval.responded_at && (
-                          <div className={`mt-1 text-xs font-medium ${
-                            doc.approval.status === 'approved'
-                              ? 'text-green-600'
-                              : 'text-red-600'
-                          }`}>
-                            {doc.approval.status === 'approved' ? 'Approved' : 'Rejected'} by {doc.approval.approver?.full_name || 'Unknown'} on {format(new Date(doc.approval.responded_at), 'MMM d, yyyy \'at\' h:mm a')}
+                        {/* Approval Timeline */}
+                        {doc.approval && doc.approval.created_at && (
+                          <div className="mt-1 text-xs">
+                            {doc.approval.status === 'pending' && (
+                              <div className="text-yellow-600 font-medium">
+                                Approval requested on {format(new Date(doc.approval.created_at), 'MMM d, yyyy \'at\' h:mm a')}
+                                {doc.approval.requester && <> by {doc.approval.requester.full_name}</>}
+                              </div>
+                            )}
+                            {doc.approval.status === 'approved' && doc.approval.responded_at && (
+                              <div className="text-green-600 font-medium">
+                                Requested {format(new Date(doc.approval.created_at), 'MMM d, h:mm a')} → Approved {format(new Date(doc.approval.responded_at), 'MMM d, h:mm a')} by {doc.approval.approver?.full_name || 'Unknown'}
+                              </div>
+                            )}
+                            {doc.approval.status === 'rejected' && doc.approval.responded_at && (
+                              <div className="text-red-600 font-medium">
+                                Requested {format(new Date(doc.approval.created_at), 'MMM d, h:mm a')} → Rejected {format(new Date(doc.approval.responded_at), 'MMM d, h:mm a')} by {doc.approval.approver?.full_name || 'Unknown'}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
