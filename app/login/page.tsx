@@ -1,28 +1,142 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabase'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [blocked, setBlocked] = useState(false)
+  const [blockTimeRemaining, setBlockTimeRemaining] = useState(0)
   const { signIn } = useAuth()
   const router = useRouter()
+
+  // Check if IP is blocked on page load
+  useEffect(() => {
+    checkRateLimit()
+  }, [])
+
+  // Update countdown timer
+  useEffect(() => {
+    if (blockTimeRemaining > 0) {
+      const timer = setInterval(() => {
+        setBlockTimeRemaining(prev => {
+          if (prev <= 1) {
+            setBlocked(false)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+      return () => clearInterval(timer)
+    }
+  }, [blockTimeRemaining])
+
+  const checkRateLimit = async () => {
+    try {
+      const { data: attempt } = await supabase
+        .from('login_attempts')
+        .select('*')
+        .eq('ip_address', 'browser-session') // Using session ID for client-side
+        .single()
+
+      if (attempt?.blocked_until) {
+        const blockedUntil = new Date(attempt.blocked_until)
+        const now = new Date()
+
+        if (now < blockedUntil) {
+          setBlocked(true)
+          setBlockTimeRemaining(Math.ceil((blockedUntil.getTime() - now.getTime()) / 1000))
+        }
+      }
+    } catch (error) {
+      // No existing record or error - allow login
+    }
+  }
+
+  const recordFailedAttempt = async () => {
+    try {
+      const { data: existing } = await supabase
+        .from('login_attempts')
+        .select('*')
+        .eq('ip_address', 'browser-session')
+        .single()
+
+      const now = new Date()
+
+      if (existing) {
+        const newCount = (existing.attempt_count || 0) + 1
+
+        if (newCount >= 5) {
+          // Block for 15 minutes
+          const blockUntil = new Date(now.getTime() + 15 * 60 * 1000)
+
+          await supabase
+            .from('login_attempts')
+            .update({
+              attempt_count: newCount,
+              blocked_until: blockUntil.toISOString(),
+              last_attempt: now.toISOString(),
+            })
+            .eq('ip_address', 'browser-session')
+
+          setBlocked(true)
+          setBlockTimeRemaining(15 * 60)
+          setError('Too many failed attempts. Account locked for 15 minutes.')
+        } else {
+          await supabase
+            .from('login_attempts')
+            .update({
+              attempt_count: newCount,
+              last_attempt: now.toISOString(),
+            })
+            .eq('ip_address', 'browser-session')
+
+          setError(`Invalid credentials. ${5 - newCount} attempts remaining.`)
+        }
+      } else {
+        // Create new record
+        await supabase.from('login_attempts').insert({
+          ip_address: 'browser-session',
+          attempt_count: 1,
+          last_attempt: now.toISOString(),
+        })
+        setError('Invalid credentials. 4 attempts remaining.')
+      }
+    } catch (error) {
+      console.error('Rate limit error:', error)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (blocked) {
+      const minutes = Math.floor(blockTimeRemaining / 60)
+      const seconds = blockTimeRemaining % 60
+      setError(`Account locked. Try again in ${minutes}m ${seconds}s`)
+      return
+    }
+
     setLoading(true)
 
     try {
       await signIn(email, password)
+      // Success - reset attempts
+      await supabase
+        .from('login_attempts')
+        .delete()
+        .eq('ip_address', 'browser-session')
       router.push('/dashboard')
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in')
+      // Failed login - record attempt
+      await recordFailedAttempt()
     } finally {
       setLoading(false)
     }

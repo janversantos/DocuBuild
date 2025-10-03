@@ -116,7 +116,7 @@ export default function SecurityPage() {
   const recentAttempts = attempts.filter((a) => !isBlocked(a.blocked_until))
 
   return (
-    <div>
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">

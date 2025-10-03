@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
-import { FileText, Folder, BarChart3, LogOut, CheckCircle, Activity, Shield } from 'lucide-react'
+import { FileText, Folder, BarChart3, LogOut, CheckCircle, Activity } from 'lucide-react'
 
 export default function Navbar() {
   const { profile, signOut } = useAuth()
@@ -19,7 +19,7 @@ export default function Navbar() {
     ...(profile?.role === 'admin'
       ? [
           { name: 'Audit Trail', href: '/dashboard/audit-trail', icon: Activity },
-          { name: 'Security', href: '/dashboard/security', icon: Shield },
+          // Security page hidden from navbar but accessible via /dashboard/security
         ]
       : []),
   ]
