@@ -52,8 +52,18 @@ PRIVACY_SECURITY_ADDENDUM.md
 SALES_PRESENTATION_GUIDE.md
 ROI_CALCULATOR.md
 FIRST_CLIENT_PRICING.md
+PRICING_STRATEGY.md
+REGULAR_PRICING_JUSTIFICATION.md
+
+# quotations and pricing documents (keep private)
+*.html
+QUOTATION*.md
+EMAIL_TEMPLATE.txt
 
 # database scripts and seed data (keep private)
 *.sql
 scripts/
 SEED_DATA_README.md
+
+# claude code artifacts
+.claude/
