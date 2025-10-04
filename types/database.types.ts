@@ -1,5 +1,5 @@
 // Database Type Definitions
-export type UserRole = 'admin' | 'approver' | 'staff' | 'viewer'
+export type UserRole = 'admin' | 'approver' | 'engineer' | 'staff' | 'viewer'
 export type DocumentStatus = 'pending' | 'approved' | 'rejected' | 'draft'
 
 export interface Profile {
@@ -16,10 +16,25 @@ export interface Project {
   name: string
   description?: string
   project_code?: string
+  codename?: string // Project codename (e.g., "25CC0092 / DALNGAN")
   status: string
   created_by?: string
   created_at: string
   updated_at: string
+
+  // Weekly Report Fields
+  site_engineer_id?: string // Contact person
+  ntp_date?: string // Notice to Proceed date
+  calendar_days?: number
+  contract_completion_date?: string
+  bid_amount?: number
+  implementation_cost?: number
+  total_planned_length?: string
+  status_percentage?: number // 0-100
+  cost_percentage?: number // 0-100
+
+  // Joined data
+  site_engineer?: Profile
 }
 
 export interface Category {
@@ -81,4 +96,19 @@ export interface ApprovalRequest {
   document?: Document
   requester?: Profile
   approver?: Profile
+}
+
+export interface WeeklyProjectUpdate {
+  id: string
+  project_id: string
+  week_start_date: string
+  week_end_date: string
+  update_details?: string // What was accomplished this week
+  problems_concerns?: string // Issues/problems this week
+  updated_by?: string
+  created_at: string
+  updated_at: string
+  // Joined data
+  project?: Project
+  updater?: Profile
 }
