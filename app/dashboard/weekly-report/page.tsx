@@ -175,6 +175,22 @@ export default function WeeklyReportPage() {
   return (
     <>
       <style>{`
+        /* Custom scrollbar for table */
+        .table-scroll::-webkit-scrollbar {
+          height: 12px;
+        }
+        .table-scroll::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 6px;
+        }
+        .table-scroll::-webkit-scrollbar-thumb {
+          background: #333;
+          border-radius: 6px;
+        }
+        .table-scroll::-webkit-scrollbar-thumb:hover {
+          background: #000;
+        }
+
         @media print {
           @page {
             size: landscape;
@@ -267,8 +283,10 @@ export default function WeeklyReportPage() {
 
         {/* Week Selector */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center space-x-2 sm:space-x-4 no-print">
+          <div className="flex flex-col gap-4">
+            {/* Week navigation - hidden on mobile, shown on desktop */}
+            <div className="hidden sm:flex items-center justify-between">
+              <div className="flex items-center space-x-4 no-print">
               <button
                 type="button"
                 onClick={handlePreviousWeek}
@@ -306,26 +324,82 @@ export default function WeeklyReportPage() {
               >
                 This Week
               </button>
-            </div>
+              </div>
 
-            <div className="text-center min-w-[220px] week-display hidden print:block">
-              <div className="font-semibold text-gray-900">
-                Weekly Report: {format(currentWeekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')} (Week {format(currentWeekStart, 'w, yyyy')})
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="no-print inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors"
+                  title="Download as PDF"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </button>
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">{projects.length}</span> projects
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="no-print w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors"
-                title="Download as PDF"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download PDF
-              </button>
-              <div className="text-sm text-gray-600 text-center sm:text-left">
-                <span className="font-medium">{projects.length}</span> projects
+            {/* Mobile week navigation */}
+            <div className="sm:hidden flex flex-col gap-3">
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePreviousWeek}
+                  className="p-2 border border-gray-300 hover:bg-gray-100 rounded-md"
+                >
+                  <ChevronLeft className="h-5 w-5 text-gray-700" />
+                </button>
+
+                <div className="flex items-center gap-2 flex-1 justify-center">
+                  <Calendar className="h-4 w-4 text-gray-500" />
+                  <div className="text-center">
+                    <div className="text-base font-semibold text-gray-900">
+                      {format(currentWeekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Week {format(currentWeekStart, 'w, yyyy')}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleNextWeek}
+                  className="p-2 border border-gray-300 hover:bg-gray-100 rounded-md"
+                >
+                  <ChevronRight className="h-5 w-5 text-gray-700" />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={handleThisWeek}
+                  className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+                >
+                  This Week
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </button>
+                <div className="text-sm text-gray-600 text-center">
+                  <span className="font-medium">{projects.length}</span> projects
+                </div>
+              </div>
+            </div>
+
+            {/* Print-only display */}
+            <div className="text-center min-w-[220px] week-display hidden print:block">
+              <div className="font-semibold text-gray-900">
+                Weekly Report: {format(currentWeekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')} (Week {format(currentWeekStart, 'w, yyyy')})
               </div>
             </div>
           </div>
@@ -342,8 +416,8 @@ export default function WeeklyReportPage() {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+            <div className="overflow-x-auto overflow-y-visible table-scroll">
+              <table className="divide-y divide-gray-200" style={{ width: '1800px', minWidth: '1800px' }}>
                 <thead className="bg-green-700">
                   <tr>
                     <th className="px-3 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-8">

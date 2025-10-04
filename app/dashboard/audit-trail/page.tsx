@@ -363,19 +363,57 @@ export default function AuditTrailPage() {
                         {log.entity_type}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
+                        {/* File name */}
                         {log.details?.file_name && (
                           <div className="max-w-xs truncate">
                             File: {log.details.file_name}
                           </div>
                         )}
+
+                        {/* Project/Entity name */}
+                        {log.details?.name && (
+                          <div className="max-w-xs truncate">
+                            {log.entity_type === 'project' ? 'Project' : 'Item'}: {log.details.name}
+                          </div>
+                        )}
+
+                        {/* Project name (for documents) */}
+                        {log.details?.project_name && (
+                          <div className="max-w-xs truncate">
+                            Project: {log.details.project_name}
+                          </div>
+                        )}
+
+                        {/* Comments */}
                         {log.details?.comments && (
                           <div className="max-w-xs truncate text-xs text-gray-400 mt-1">
                             "{log.details.comments}"
                           </div>
                         )}
-                        {log.details?.project_name && (
-                          <div className="max-w-xs truncate">
-                            Project: {log.details.project_name}
+
+                        {/* Changes (for updates) */}
+                        {log.details?.changes && Object.keys(log.details.changes).length > 0 && (
+                          <div className="mt-1 text-xs space-y-1">
+                            <div className="font-medium text-gray-600">Changes:</div>
+                            {Object.entries(log.details.changes).slice(0, 3).map(([field, change]: [string, any]) => (
+                              <div key={field} className="text-gray-500">
+                                <span className="font-medium">{field}:</span>{' '}
+                                <span className="text-red-600">{String(change.old || 'null')}</span> →{' '}
+                                <span className="text-green-600">{String(change.new || 'null')}</span>
+                              </div>
+                            ))}
+                            {Object.keys(log.details.changes).length > 3 && (
+                              <div className="text-gray-400 italic">
+                                +{Object.keys(log.details.changes).length - 3} more changes
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Created fields (for creates) */}
+                        {log.details?.created_fields && (
+                          <div className="mt-1 text-xs text-gray-500">
+                            Created with {Object.keys(log.details.created_fields).length} fields
                           </div>
                         )}
                       </td>
